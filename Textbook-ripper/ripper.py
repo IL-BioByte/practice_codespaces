@@ -3,33 +3,42 @@ import os
 import tempfile
 import pyautogui
 import img2pdf
-
+import mss
+from PIL import Image
+import time
 
 def screenshot(top_left, right_bottom, next_page, total_page):
     rect_size = (right_bottom[0] - top_left[0], right_bottom[1] - top_left[1])
     images = []
     temp_dir = tempfile.mkdtemp()
 
-    for i in range(total_page):
-        page_num = "{}".format(i).zfill(len(str(total_page)))
-        file_name = os.path.join(temp_dir, 'book-page-{}.png'.format(page_num))
-        images.append(file_name)
+    with mss.mss() as sct:
+        for i in range(total_page):
+            page_num = "{}".format(i).zfill(len(str(total_page)))
+            file_name = os.path.join(temp_dir, 'book-page-{}.png'.format(page_num))
+            images.append(file_name)
 
-        # Move to the next page button and click
-        pyautogui.moveTo(*next_page, duration=1)
-        pyautogui.click()
+            # Move to the next page button and click
+            pyautogui.moveTo(*next_page, duration=1)
+            pyautogui.click()
+            time.sleep(1)  # Delay to ensure page loads fully
 
-        # Take a screenshot of the specified region
-        screenshot = pyautogui.screenshot(region=(top_left[0], top_left[1], rect_size[0], rect_size[1]))
-        screenshot.save(file_name)
+            # Capture the region using mss
+            monitor = {
+                "top": top_left[1],
+                "left": top_left[0],
+                "width": rect_size[0],
+                "height": rect_size[1]
+            }
+            screenshot = sct.grab(monitor)
+            img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+            img.save(file_name)
 
     return images
-
 
 def image2pdf(images):
     with open("book.pdf", "wb") as f:
         f.write(img2pdf.convert(images))
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Take book screenshots.')
